@@ -1,6 +1,7 @@
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:3000"); // Point to your server
+const url = import.meta.env.API_URL
+const socket = io(url); // Point to your server
 
 export const ObjSync = {
   generateCode: async (): Promise<string> => {
