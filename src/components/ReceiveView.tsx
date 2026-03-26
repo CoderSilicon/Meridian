@@ -79,7 +79,7 @@ const ReceiveView: Component<{ setMode: (mode: string) => void }> = (props) => {
 
   onMount(async () => {
     try {
-      const response = await axios.get("http://localhost:3000/alive");
+      const response = await axios.get("https://meridite.onrender.com/alive");
       setIsServerActive(true);
       console.log(response.data);
     } catch (error) {
