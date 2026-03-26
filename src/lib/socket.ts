@@ -1,10 +1,12 @@
+
 import { io } from "socket.io-client";
 
-const url = import.meta.env.API_URL
-const socket = io(url); // Point to your server
+// const socket = io("https://meridite.onrender.com");
+const socket = io("http://localhost:3000")
+ // Point to your server
 
-export const ObjSync = {
-  generateCode: async (): Promise<string> => {
+class Signal {
+  generateCode = async (): Promise<string> => {
     // 1. Capture high-precision time + random salt
     const time = Date.now().toString();
     const perf = performance.now().toString();
@@ -34,17 +36,19 @@ export const ObjSync = {
 
     // Insert a hyphen in the middle for readability
     return `${finalCode.slice(0, 4)}-${finalCode.slice(4)}`;
-  },
-  
-  emit: (event: string, data: any) => {
-    socket.emit(event, data);
-  },
+  }
 
-  on: (event: string, callback: (data: any) => void) => {
-    socket.on(event, callback);
-  },
+  emit(eventName: string, data: any): void {
+    socket.emit(eventName, data);
+  }
 
-  off: (event: string) => {
-    socket.off(event);
-  },
-};
+  on(eventName: string, callback: (data: any) => void): void {
+    socket.on(eventName, callback);
+  }
+
+  off(eventName: string): void {
+    socket.off(eventName);
+  }
+}
+
+export const signal = new Signal();

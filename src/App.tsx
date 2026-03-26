@@ -9,7 +9,6 @@ import ReceiveView from "./components/ReceiveView";
 import SendView from "./components/SendView";
 export default function Home() {
   const [mode, setMode] = createSignal("selection");
-  console.log(import.meta.env)
 
   return (
     <div class="min-h-screen bg-zinc-950 text-white text-foreground flex flex-col items-center justify-center p-4">
