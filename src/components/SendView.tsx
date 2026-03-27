@@ -56,35 +56,88 @@ const SendView: Component<{ setMode: (mode: string) => void }> = (props) => {
     signal.on("candidate", (cand) =>
       pc.addIceCandidate(new RTCIceCandidate(cand)),
     );
-    
+
+    signal.on("receiver-left", () => {
+      alert("Receiver canceled the connection.");
+      reset(); // Reset the UI to the start
+    });
+
+    // Handle the WebRTC layer actually closing
+    dataChannel.onclose = () => {
+      reset();
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (
+        pc.connectionState === "disconnected" ||
+        pc.connectionState === "failed"
+      ) {
+        reset();
+      }
+    };
   };
 
-  const handleSend = () => {
-    const currentFile = file();
+  const handleSend = async () => {
+    const currentFile = file(); // Accessing your SolidJS signal
+
     if (currentFile && dataChannel?.readyState === "open") {
-      sendFileChunks(dataChannel, currentFile, setProgress);
+      // 1. Define the UI progress handler here
+      const handleProgressUpdate = (bytesSent: number, totalBytes: number) => {
+        let percentage = Math.round((bytesSent / totalBytes) * 100);
+
+        // Clamp it so it never breaks your clean UI layout
+        if (percentage > 100) percentage = 100;
+
+        setProgress(percentage);
+
+        // Cleanly reset after a short delay once finished
+        if (percentage === 100) {
+          setTimeout(() => {
+            setProgress(0);
+          }, 1000);
+        }
+      };
+
+      // 2. Pass the handler to the WebRTC function
+      try {
+        await sendFileChunks(dataChannel, currentFile, handleProgressUpdate);
+        alert("Transfer complete!");
+      } catch (error) {
+        alert("Transfer interrupted:" + error);
+        // You could also add a setTransferStatus("failed") here if needed
+      }
     }
+  };
+
+  const reset = () => {
+    // 1. Close the connection
+    pc?.close();
+    dataChannel?.close();
+
+    // 2. Reset all UI signals to their "Selection" state
+    setGeneratedCode("");
+    setPeerConnected(false);
+    setProgress(0);
+    setFile(null);
   };
 
   onMount(async () => {
     try {
       const response = await axios.get("https://meridite.onrender.com/alive");
-      setIsServerActive(true);
-      console.log(response.data);
+      setIsServerActive(response.status === 200);
     } catch (error) {
       setIsServerActive(false);
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       console.error("Error fetching data:", errorMessage);
     }
-
   });
 
   onCleanup(() => pc?.close());
 
   return (
     <div class=" w-full bg-zinc-950 flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto">
-      <Show when={isServerActive()}>
+      <Show when={isServerActive() === true} fallback={<div>Loading...</div>}>
         <div class="w-full max-w-lg space-y-6 sm:space-y-8 my-auto">
           {/* Header Section */}
           <div class="space-y-2">
@@ -244,14 +297,14 @@ const SendView: Component<{ setMode: (mode: string) => void }> = (props) => {
             <button
               onClick={!generatedCode() ? initConnection : handleSend}
               disabled={!!generatedCode() && !peerConnected()}
-              class="w-full py-4 rounded-xl bg-white text-black text-sm font-bold tracking-wide uppercase transition-all hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white active:scale-[0.98]"
+              class="w-full py-5 bg-black text-white font-black lexend-600 tracking-widest text-sm rounded-xl transition-all duration-200 hover:bg-zinc-900 active:scale-[0.98] disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:bg-black overflow-hidden relative"
             >
               {!generatedCode()
                 ? "Generate Code"
                 : peerConnected()
-                  ? `Send File ${async () => {
-                      await progress();
-                    }}`
+                  ? progress() > 0
+                    ? `Sending ${progress()}%` // Just call the signal here
+                    : "Send File"
                   : "Waiting for Peer..."}
             </button>
           </Show>

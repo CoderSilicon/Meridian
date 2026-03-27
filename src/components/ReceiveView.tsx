@@ -77,6 +77,23 @@ const ReceiveView: Component<{ setMode: (mode: string) => void }> = (props) => {
     setStatus("Download Complete!");
   };
 
+  // Inside ReceiveView.tsx
+  const reset = () => {
+    // 1. Notify the sender through the signaling server
+    if (handshakeId()) {
+      signal.emit("leave-room", { code: handshakeId() });
+    }
+
+    // 2. Local Cleanup
+    pc?.close();
+    setIsConnected(false);
+    setHandshakeId(""); // Clearing this will reset the view logic
+    setStatus("Disconnected");
+    setProgress(0);
+    receivedChunks = [];
+    bytesReceived = 0;
+  };
+
   onMount(async () => {
     try {
       const response = await axios.get("https://meridite.onrender.com/alive");
@@ -94,7 +111,7 @@ const ReceiveView: Component<{ setMode: (mode: string) => void }> = (props) => {
 
   return (
     <div class="min-h-screen w-full bg-zinc-950 flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto">
-      <Show when={isServerActive()}>
+      <Show when={isServerActive() === true} fallback={<div>Loading...</div>}>
         <div class="w-full max-w-lg space-y-6 sm:space-y-8 my-auto">
           {/* Header Section */}
           <div class="space-y-2">
@@ -140,12 +157,7 @@ const ReceiveView: Component<{ setMode: (mode: string) => void }> = (props) => {
                 </button>
                 <button
                   onClick={() => {
-                    pc?.close();
-                    setIsConnected(false);
-                    setStatus("Disconnected");
-                    setProgress(0);
-                    receivedChunks = [];
-                    bytesReceived = 0;
+                    reset();
                   }}
                   disabled={!handshakeId()}
                   class="w-full py-5 bg-white text-black lexend-600 tracking-widest text-sm rounded-xl transition-all duration-200 hover:bg-zinc-900 active:scale-[0.98] disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:bg-black overflow-hidden relative"

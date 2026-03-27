@@ -1,39 +1,52 @@
 export const CHUNK_SIZE = 16384; 
 
-
 export async function sendFileChunks(
   dataChannel: RTCDataChannel, 
   file: File, 
-  onProgress: (p: number) => void
-) {
-  // 1. Send metadata first
-  dataChannel.send(JSON.stringify({ 
-    type: "metadata", 
-    name: file.name, 
-    size: file.size 
-  }));
+  onProgressUpdate: (bytesSent: number, totalBytes: number) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // 1. Send metadata first
+    dataChannel.send(JSON.stringify({ 
+      type: "metadata", 
+      name: file.name, 
+      size: file.size 
+    }));
 
-  const buffer = await file.arrayBuffer();
-  let offset = 0;
-  const progress = Math.round((offset / file.size) * 100);
+    let offset = 0;
 
-  const sendNext = () => {
-    while (offset < buffer.byteLength) {
-      // If buffer is full, wait for 'bufferedamountlow' event
-      if (dataChannel.bufferedAmount > dataChannel.bufferedAmountLowThreshold) {
-        dataChannel.onbufferedamountlow = () => {
-          dataChannel.onbufferedamountlow = null;
-          sendNext();
-        };
-        return;
+    const readAndSendNextChunk = async () => {
+      try {
+        while (offset < file.size) {
+          if (dataChannel.bufferedAmount > dataChannel.bufferedAmountLowThreshold) {
+            dataChannel.onbufferedamountlow = () => {
+              dataChannel.onbufferedamountlow = null;
+              readAndSendNextChunk();
+            };
+            return; 
+          }
+
+          // Read only the current chunk into memory
+          const chunk = file.slice(offset, offset + CHUNK_SIZE);
+          const buffer = await chunk.arrayBuffer();
+          
+          dataChannel.send(buffer);
+          offset += buffer.byteLength; 
+
+          // Pass raw data outside; don't calculate percentages here
+          onProgressUpdate(offset, file.size);
+        }
+
+        // 2. Transfer complete
+        dataChannel.send(JSON.stringify({ type: "eof" }));
+        resolve();
+        
+      } catch (error) {
+        alert(`Transfer failed: ${error}`);
+        reject(error);
       }
-      const chunk = buffer.slice(offset, offset + CHUNK_SIZE);
-      dataChannel.send(chunk);
-      offset += CHUNK_SIZE;
+    };
 
-      onProgress(progress);
-    }
-    dataChannel.send(JSON.stringify({ type: "eof" }));
-  };
-  sendNext();
+    readAndSendNextChunk();
+  });
 }

@@ -1,9 +1,7 @@
 
 import { io } from "socket.io-client";
 
-// const socket = io("https://meridite.onrender.com");
-const socket = io("https://meridite.onrender.com")
- // Point to your server
+const socket = io("https://meridite.onrender.com");  // Point to your server
 
 class Signal {
   generateCode = async (): Promise<string> => {
@@ -48,6 +46,10 @@ class Signal {
 
   off(eventName: string): void {
     socket.off(eventName);
+  }
+
+  disconnect(): void {
+    socket.disconnect();
   }
 }
 
